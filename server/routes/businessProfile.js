@@ -68,19 +68,6 @@ router.post('/', require('../middleware/auth').authenticateToken, validate(schem
 
     const profile = result.rows[0];
 
-    // If GSTIN is provided and valid, create document verification record
-    if (country === 'IN' && taxId && validateGSTIN(taxId)) {
-      await query(
-        `INSERT INTO document_verifications (user_id, document_type, document_number, document_url, verification_status)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (user_id, document_type) DO UPDATE SET
-         document_number = EXCLUDED.document_number,
-         verification_status = EXCLUDED.verification_status,
-         updated_at = CURRENT_TIMESTAMP`,
-        [userId, 'GST', taxId, '', 'Pending']
-      );
-    }
-
     logger.info(`Business profile ${existingProfile.rows.length > 0 ? 'updated' : 'created'} for user: ${userId}`);
 
     res.status(existingProfile.rows.length > 0 ? 200 : 201).json({
@@ -215,39 +202,6 @@ router.post('/validate-gstin', (req, res) => {
     res.status(500).json({
       success: false,
       message: 'GSTIN validation failed'
-    });
-  }
-});
-
-// Upload business logo
-router.post('/logo', require('../middleware/auth').authenticateToken, async (req, res) => {
-  try {
-    // This would integrate with file upload middleware (multer + S3)
-    // For now, we'll just return a placeholder
-    const { logoUrl } = req.body;
-
-    if (!logoUrl) {
-      return res.status(400).json({
-        success: false,
-        message: 'Logo URL is required'
-      });
-    }
-
-    await query(
-      'UPDATE business_profiles SET logo_url = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2',
-      [logoUrl, req.user.id]
-    );
-
-    res.json({
-      success: true,
-      message: 'Logo updated successfully',
-      data: { logoUrl }
-    });
-  } catch (error) {
-    logger.error('Logo upload error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update logo'
     });
   }
 });
